@@ -1,6 +1,7 @@
 import pickle
 from typing import Tuple, Union, Dict, Optional
 
+import warnings
 import numpy as np
 import pandas as pd
 import imageio as iio
@@ -23,6 +24,8 @@ def load_intrinsic_camera_calibration(intrinsic_camera_calibration_filepath: str
 def undistort_points(df_raw, camera_parameters_for_undistortion: Dict, fisheye: bool = False) -> pd.DataFrame:
     # understanding the maths behind it: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
     points = df_raw[["x", "y"]].values
+
+    warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
     
     if fisheye:
         newcameramtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
@@ -79,6 +82,8 @@ class DLCUndistorter:
         scorer = self.dlc_df.columns.levels[0][0]
         bps = self.dlc_df.columns.levels[1]
         df_undistorted = pd.DataFrame({}, index=self.dlc_df.index, columns=self.dlc_df.columns)
+        
+        warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
         
         for bp in bps:
             xy, likelihood = undistort_points(self.dlc_df.loc[:, (scorer, bp)], camera_parameters_for_undistortion, self.fisheye)
