@@ -1,5 +1,5 @@
 import pickle
-from typing import Tuple, Union, Dict
+from typing import Tuple, Union, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -9,29 +9,54 @@ import cv2
 import matplotlib.pyplot as plt
 
 
-def load_intrinsic_camera_calibration(intrinsic_camera_calibration_filepath: str) -> Tuple[np.array, np.array]:
+def load_intrinsic_camera_calibration(intrinsic_camera_calibration_filepath: str, cropping: Optional[Dict] = None) -> Tuple[np.array, np.array]:
     with open(intrinsic_camera_calibration_filepath, "rb") as io:
         intrinsic_calibration = pickle.load(io)
+
+    if cropping is not None:
+        intrinsic_calibration["K"][0][2] = intrinsic_calibration["K"][0][2] - cropping["offset_col_idx"]
+        intrinsic_calibration["K"][1][2] = intrinsic_calibration["K"][1][2] - cropping["offset_row_idx"]
+        
     return intrinsic_calibration
 
 
-def undistort_points(df_raw, camera_parameters_for_undistortion: Dict) -> pd.DataFrame:
+def undistort_points(df_raw, camera_parameters_for_undistortion: Dict, fisheye: bool = False) -> pd.DataFrame:
     # understanding the maths behind it: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
     points = df_raw[["x", "y"]].values
-    points_undistorted = cv2.undistortPoints(
-        points,
-        camera_parameters_for_undistortion["K"],
-        camera_parameters_for_undistortion["D"],   
-    )
-    points_undistorted = np.squeeze(points_undistorted)
-    return points_undistorted, df_raw["likelihood"]
+    
+    if fisheye:
+        newcameramtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+            camera_parameters_for_undistortion["K"],
+            camera_parameters_for_undistortion["D"], 
+            camera_parameters_for_undistortion["size"], 
+            None, 
+            balance=1
+        )
+        points_undistorted = cv2.fisheye.undistortPoints(
+            np.expand_dims(points, axis=1),
+            camera_parameters_for_undistortion["K"], 
+            camera_parameters_for_undistortion["D"], 
+            None, 
+            newcameramtx
+            )
+    
+    else:
+        points_undistorted = cv2.undistortPoints(
+            points,
+            camera_parameters_for_undistortion["K"],
+            camera_parameters_for_undistortion["D"],   
+        )
+        
+    points_squeezed = np.squeeze(points_undistorted)
+        
+    return points_squeezed, df_raw["likelihood"]
 
 
 class DLCUndistorter:
-    def __init__(self, dlc_filepath: str, intrinsic_camera_calibration_filepath: str, video_filepath: str):
+    def __init__(self, dlc_filepath: str, intrinsic_camera_calibration_filepath: str, video_filepath: str, fisheye: bool = False, cropping: Optional[Dict] = None):
         self.intrinsic_camera_calibration_filepath = intrinsic_camera_calibration_filepath
         if self.intrinsic_camera_calibration_filepath.endswith(".p"):
-            self.intrinsic_camera_calibration = load_intrinsic_camera_calibration(self.intrinsic_camera_calibration_filepath)
+            self.intrinsic_camera_calibration = load_intrinsic_camera_calibration(self.intrinsic_camera_calibration_filepath, cropping=cropping)
         
         self.dlc_filepath = dlc_filepath
         if self.dlc_filepath.endswith("h5"):
@@ -43,6 +68,8 @@ class DLCUndistorter:
             
         self.video_filepath = video_filepath
         self.image = iio.v3.imread(self.video_filepath, index=0)
+        
+        self.fisheye = fisheye
             
             
     def run(self) -> pd.DataFrame:
@@ -54,7 +81,7 @@ class DLCUndistorter:
         df_undistorted = pd.DataFrame({}, index=self.dlc_df.index, columns=self.dlc_df.columns)
         
         for bp in bps:
-            xy, likelihood = undistort_points(self.dlc_df.loc[:, (scorer, bp)], camera_parameters_for_undistortion)
+            xy, likelihood = undistort_points(self.dlc_df.loc[:, (scorer, bp)], camera_parameters_for_undistortion, self.fisheye)
             df_undistorted.loc[:, (scorer, bp, "likelihood")] = likelihood
             df_undistorted.loc[:, (scorer, bp, "x")] = xy[:, 0]
             df_undistorted.loc[:, (scorer, bp, "y")] = xy[:, 1]
