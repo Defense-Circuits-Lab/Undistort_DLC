@@ -33,7 +33,7 @@ def undistort_points(df_raw, camera_parameters_for_undistortion: Dict, fisheye: 
             camera_parameters_for_undistortion["D"], 
             camera_parameters_for_undistortion["size"], 
             None, 
-            balance=1
+            balance=0
         )
         points_undistorted = cv2.fisheye.undistortPoints(
             np.expand_dims(points, axis=1),
