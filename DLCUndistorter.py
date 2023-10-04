@@ -56,7 +56,7 @@ def undistort_points(df_raw, camera_parameters_for_undistortion: Dict, fisheye: 
 
 
 class DLCUndistorter:
-    def __init__(self, dlc_filepath: str, intrinsic_camera_calibration_filepath: str, video_filepath: str, fisheye: bool = False, cropping: Optional[Dict] = None):
+    def __init__(self, dlc_filepath: str, intrinsic_camera_calibration_filepath: str, video_filepath: Optional[str] = None, video_size: Optional[Tuple[int]] = None,  fisheye: bool = False, cropping: Optional[Dict] = None):
         self.intrinsic_camera_calibration_filepath = intrinsic_camera_calibration_filepath
         if self.intrinsic_camera_calibration_filepath.endswith(".p"):
             self.intrinsic_camera_calibration = load_intrinsic_camera_calibration(self.intrinsic_camera_calibration_filepath, cropping=cropping)
@@ -69,15 +69,20 @@ class DLCUndistorter:
         else:
             raise ValueError("DeepLabCut file must be .h5 or .csv")
             
-        self.video_filepath = video_filepath
-        self.image = iio.v3.imread(self.video_filepath, index=0)
+        if video_filepath is None:
+            if video_size is None:
+                raise ValueError("One of video_size or video_filepath mustnt be None")
+            else:
+                self.size = video_size
+        else:
+            image = iio.v3.imread(video_filepath, index=0)
+            self.size = image.shape[1], image.shape[0]
         
         self.fisheye = fisheye
             
             
     def run(self) -> pd.DataFrame:
-        size = self.image.shape[1], self.image.shape[0]
-        camera_parameters_for_undistortion = {"K": self.intrinsic_camera_calibration["K"], "D": self.intrinsic_camera_calibration["D"], "size": size}
+        camera_parameters_for_undistortion = {"K": self.intrinsic_camera_calibration["K"], "D": self.intrinsic_camera_calibration["D"], "size": self.size}
         
         scorer = self.dlc_df.columns.levels[0][0]
         bps = self.dlc_df.columns.levels[1]

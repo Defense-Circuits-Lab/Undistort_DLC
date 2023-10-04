@@ -2,7 +2,7 @@
 
 DeepLabCut is a widely used markerless pose estimation toolbox in behavioral science. Removing camera distortion from fisheye and non-fisheye cameras is crucial for calculations on DeepLabCut data. Notably, the code in this repository is basic and an implementation of undistortion as an optional function in the DeepLabCut toolbox itself would be appreciated.
 
-The Undistort_DLC repository takes care of this specific task: Take DeepLabCut dataframes as the input and output undistorted DeepLabCut dataframes. Requirements for this undistortion are an intrinsic camera calibration and the video belonging to the deeplabcut dataframe. It is possible, to take croppings of the video belonging to the deeplabcut dataframe in regard to the intrinsic camera calibration video, into account. The code is working on both fisheye and non-fisheye cameras.
+The Undistort_DLC repository takes care of this specific task: Take DeepLabCut dataframes as the input and output undistorted DeepLabCut dataframes. Requirements for this undistortion are an intrinsic camera calibration and the video or the video size belonging to the deeplabcut dataframe. It is possible, to take croppings of the video belonging to the deeplabcut dataframe in regard to the intrinsic camera calibration video, into account. The code is working on both fisheye and non-fisheye cameras.
 
 
 
